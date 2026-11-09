@@ -1,0 +1,10 @@
+.sombra_cards {
+  box-shadow: 0 6px 18px rgba(0,0,0,.18);
+}
+
+.nav-link.morpho-active {
+  background: rgba(255,255,255,.08);
+  border-left: 3px solid #ffc107; /* “warning” */
+  border-radius: .5rem;
+  padding-left: .5rem;
+}

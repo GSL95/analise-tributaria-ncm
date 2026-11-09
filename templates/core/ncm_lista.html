@@ -1,0 +1,242 @@
+{# templates/ncms/lista.html #}
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}NCMs - Análise Tributária{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+<style>
+  .ncm-badge{font-size:.75rem}
+  .chip{border:1px solid rgba(0,0,0,.08); padding:.15rem .5rem; border-radius:999px; font-size:.75rem}
+  .table td{vertical-align:middle}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+  <div>
+    <h3 class="mb-0">NCMs</h3>
+    {% if conta %}<div class="text-secondary small">{{ conta.nome }}</div>{% endif %}
+    {% if empresa %}<div class="text-secondary small">Empresa ativa: <span class="fw-semibold">{{ empresa.razao_social }}</span> ({{ empresa.cnpj }})</div>{% endif %}
+  </div>
+
+  <div class="d-flex gap-2">
+    <a href="{% url 'empresas' %}" class="btn btn-outline-secondary btn-sm">Trocar empresa</a>
+    {% if empresa %}
+      <a href="{% url 'analise_tributaria_disparar' empresa.id %}" class="btn btn-primary btn-sm">Disparar análise</a>
+    {% else %}
+      <button class="btn btn-primary btn-sm" disabled>Disparar análise</button>
+    {% endif %}
+  </div>
+</div>
+
+{% if sem_empresa %}
+  <div class="alert alert-warning">Selecione uma empresa para visualizar os NCMs.</div>
+{% else %}
+
+  {# KPIs #}
+  <div class="row g-3 mb-3">
+    <div class="col-md-3">
+      <div class="card sombra_cards"><div class="card-body">
+        <div class="text-secondary small">Total de NCMs</div>
+        <div class="fs-3 fw-bold">{{ kpi_total_ncms|default:0 }}</div>
+      </div></div>
+    </div>
+    <div class="col-md-3">
+      <div class="card sombra_cards"><div class="card-body">
+        <div class="text-secondary small">Sem consulta</div>
+        <div class="fs-3 fw-bold">{{ kpi_sem_cache|default:0 }}</div>
+      </div></div>
+    </div>
+    <div class="col-md-3">
+      <div class="card sombra_cards"><div class="card-body">
+        <div class="text-secondary small">Com erro</div>
+        <div class="fs-3 fw-bold">{{ kpi_com_erro|default:0 }}</div>
+      </div></div>
+    </div>
+    <div class="col-md-3">
+      <div class="card sombra_cards"><div class="card-body">
+        <div class="text-secondary small">Atualizados (30 dias)</div>
+        <div class="fs-3 fw-bold">{{ kpi_atualizados_30d|default:0 }}</div>
+      </div></div>
+    </div>
+  </div>
+
+  {# Filtros #}
+  <div class="card sombra_cards mb-3">
+    <div class="card-body">
+      <form method="get" class="row g-2 align-items-end">
+        <div class="col-lg-4">
+          <label class="form-label small text-secondary mb-1">Busca</label>
+          <input type="text" name="q" value="{{ request.GET.q }}" class="form-control" placeholder="NCM, descrição TIPI ou produto...">
+        </div>
+
+        <div class="col-lg-3">
+          <label class="form-label small text-secondary mb-1">Lote</label>
+          <select name="lote" class="form-select">
+            <option value="">Todos</option>
+            {% for l in lotes %}
+              <option value="{{ l.id }}" {% if request.GET.lote == l.id|stringformat:"s" %}selected{% endif %}>
+                #{{ l.id }} • {{ l.get_tipo_display }} • {{ l.criado_em|date:"d/m/Y H:i" }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="col-lg-3">
+          <label class="form-label small text-secondary mb-1">Filtro</label>
+          <select name="f" class="form-select">
+            <option value="">Todos</option>
+            <option value="sem_cache" {% if request.GET.f == "sem_cache" %}selected{% endif %}>Somente sem consulta</option>
+            <option value="erro" {% if request.GET.f == "erro" %}selected{% endif %}>Somente erro</option>
+            <option value="ok" {% if request.GET.f == "ok" %}selected{% endif %}>Somente OK</option>
+          </select>
+        </div>
+
+        <div class="col-lg-2 d-flex gap-2">
+          <button class="btn btn-primary w-100" type="submit">Aplicar</button>
+          <a class="btn btn-outline-secondary w-100" href="?">Limpar</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {# Tabela #}
+  <div class="card sombra_cards">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <div class="fw-semibold">NCMs importados</div>
+        <div class="text-secondary small">
+          {{ page_obj.paginator.count|default:0 }} registros
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+          <thead>
+            <tr>
+              <th style="width:110px;">NCM</th>
+              <th>Descrição TIPI</th>
+              <th class="text-center" style="width:120px;">Status</th>
+              <th class="text-end" style="width:120px;">Produtos</th>
+              <th class="text-end" style="width:170px;">Última consulta</th>
+              <th class="text-end" style="width:180px;">Ações</th>
+            </tr>
+          </thead>
+
+          <tbody>
+          {% for row in page_obj %}
+            <tr>
+              <td class="fw-semibold">{{ row.ncm }}</td>
+
+              <td>
+                {% if row.desc_tipi %}
+                  <div class="small">{{ row.desc_tipi }}</div>
+                {% else %}
+                  <div class="text-secondary small">Sem consulta TIPI.</div>
+                {% endif %}
+
+                {% if row.uf_origem and row.uf_destino %}
+                  <div class="mt-1 d-flex flex-wrap gap-1">
+                    <span class="chip">UF: {{ row.uf_origem }} → {{ row.uf_destino }}</span>
+                    {% if row.regime_label %}<span class="chip">{{ row.regime_label }}</span>{% endif %}
+                  </div>
+                {% endif %}
+              </td>
+
+              <td class="text-center">
+                {% if row.status == "OK" %}
+                  <span class="badge bg-success ncm-badge">OK</span>
+                {% elif row.status == "ERRO" %}
+                  <span class="badge bg-danger ncm-badge">ERRO</span>
+                {% else %}
+                  <span class="badge bg-secondary ncm-badge">SEM CACHE</span>
+                {% endif %}
+              </td>
+
+              <td class="text-end">
+                <span class="fw-semibold">{{ row.qtd_produtos|default:0 }}</span>
+              </td>
+
+              <td class="text-end">
+                {% if row.consultado_em %}
+                  <div class="small">{{ row.consultado_em|date:"d/m/Y H:i" }}</div>
+                {% else %}
+                  <div class="text-secondary small">—</div>
+                {% endif %}
+              </td>
+
+              <td class="text-end">
+                <div class="btn-group btn-group-sm" role="group">
+
+                  {# ncm/<str:ncm>/ #}
+                  {% if row.ncm %}
+                    <a class="btn btn-outline-primary"
+                       href="{% url 'ncm_detalhe' row.ncm %}">
+                      Detalhar
+                    </a>
+                  {% else %}
+                    <button class="btn btn-outline-secondary" disabled title="NCM vazio">Detalhar</button>
+                  {% endif %}
+
+                  {# ncm/cache/<int:cache_id>/ #}
+                  {% if row.cache_id %}
+                    <a class="btn btn-outline-secondary"
+                       href="{% url 'ncm_cache' row.cache_id %}">
+                      Cache
+                    </a>
+                  {% endif %}
+
+                  {# Você NÃO tem URL de reconsultar nas rotas atuais -> removido #}
+
+                </div>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="6">
+                <div class="text-secondary small py-3">
+                  Nenhum NCM encontrado com os filtros atuais.
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {# Paginação #}
+      {% if page_obj.paginator.num_pages > 1 %}
+        <nav class="mt-3">
+          <ul class="pagination pagination-sm mb-0">
+            {% if page_obj.has_previous %}
+              <li class="page-item">
+                <a class="page-link" href="?{% if request.GET.q %}q={{ request.GET.q|urlencode }}&{% endif %}{% if request.GET.lote %}lote={{ request.GET.lote }}&{% endif %}{% if request.GET.f %}f={{ request.GET.f }}&{% endif %}page={{ page_obj.previous_page_number }}">Anterior</a>
+              </li>
+            {% else %}
+              <li class="page-item disabled"><span class="page-link">Anterior</span></li>
+            {% endif %}
+
+            <li class="page-item disabled">
+              <span class="page-link">
+                Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+              </span>
+            </li>
+
+            {% if page_obj.has_next %}
+              <li class="page-item">
+                <a class="page-link" href="?{% if request.GET.q %}q={{ request.GET.q|urlencode }}&{% endif %}{% if request.GET.lote %}lote={{ request.GET.lote }}&{% endif %}{% if request.GET.f %}f={{ request.GET.f }}&{% endif %}page={{ page_obj.next_page_number }}">Próxima</a>
+              </li>
+            {% else %}
+              <li class="page-item disabled"><span class="page-link">Próxima</span></li>
+            {% endif %}
+          </ul>
+        </nav>
+      {% endif %}
+
+    </div>
+  </div>
+
+{% endif %}
+{% endblock %}

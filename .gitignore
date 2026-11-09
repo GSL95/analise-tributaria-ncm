@@ -1,0 +1,76 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Ambientes virtuais
+venv/
+.venv/
+env/
+ENV/
+.python-version
+
+# Variáveis de ambiente / segredos
+.env
+.env.*
+!.env.example
+local_settings.py
+settings_local.py
+secrets/
+certificados/
+*.pfx
+*.p12
+*.pem
+*.key
+*.crt
+*.cer
+
+# Banco de dados
+*.sqlite3
+*.sqlite3-journal
+*.db
+
+# Django: arquivos gerados e enviados
+media/
+staticfiles/
+static_collected/
+
+# Uploads / dados fiscais processados (nunca versionar documentos reais)
+uploads/
+arquivos/
+xml/
+pdf/
+relatorios/
+tmp/
+temp/
+*.zip
+
+# Logs
+*.log
+logs/
+
+# Celery / processos
+celerybeat-schedule
+celerybeat.pid
+*.pid
+
+# IDEs / SO
+.vscode/
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Front-end / build
+node_modules/
+dist/
+build/
+
+# Docker
+*.env.docker
+docker-compose.override.yml

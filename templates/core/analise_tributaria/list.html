@@ -1,0 +1,303 @@
+{# templates/core/analise_tributaria/list.html #}
+{% extends "base.html" %}
+{% block content %}
+
+{# CSS local (sem mexer no base.html) para: conter largura, reduzir colunas, e remover scroll horizontal da página #}
+<style>
+  /* Impede a página inteira de criar scroll horizontal */
+  html, body { overflow-x: hidden; }
+
+  /* Container não pode “vazar” da viewport */
+  .container { max-width: 100%; }
+
+  /* O card/tabela não podem estourar a largura */
+  .card, .table-responsive { max-width: 100%; }
+
+  /* Mantém a tabela “comportada” e força quebras quando necessário */
+  .table {
+    width: 100%;
+    table-layout: fixed; /* evita a tabela crescer por conteúdo longo */
+  }
+
+  /* Por padrão, trunca texto em células */
+  .table td, .table th {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: middle;
+  }
+
+  /* Coluna do produto pode quebrar em 2 linhas (melhor que estourar a página) */
+  .col-produto {
+    white-space: normal !important;
+  }
+  .col-produto .produto-nome {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;  /* 2 linhas */
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Esconde colunas menos importantes em telas menores */
+  @media (max-width: 1400px) {
+    .hide-xxl { display: none; }
+  }
+  @media (max-width: 1200px) {
+    .hide-xl { display: none; }
+  }
+  @media (max-width: 992px) {
+    .hide-lg { display: none; }
+  }
+  @media (max-width: 768px) {
+    .hide-md { display: none; }
+    .table td, .table th { font-size: .875rem; }
+  }
+</style>
+
+<div class="container mt-4">
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h3 class="mb-0">Análise Tributária</h3>
+      <small class="text-muted">{{ empresa.razao_social }} ({{ empresa.cnpj }})</small>
+    </div>
+  </div>
+
+  <form method="post" action="{% url 'analise_tributaria_disparar' empresa.id %}" class="d-flex gap-2 mb-3 flex-wrap">
+    {% csrf_token %}
+    <input class="form-control" style="max-width:180px;" name="lote" placeholder="ID do lote (opcional)">
+    <button class="btn btn-warning" type="submit">
+      <i class="bi bi-lightning-charge-fill me-1"></i> Disparar Análise
+    </button>
+
+    <a class="btn btn-success ms-auto"
+       href="{% url 'analise_tributaria_exportar_xlsx' empresa.id %}">
+      <i class="bi bi-file-earmark-excel"></i>
+      Exportar análise completa
+    </a>
+  </form>
+
+  <form method="post"
+      action="{% url 'analise_tributaria_analisar_item' empresa.id %}"
+      class="card card-body mb-3 border-primary">
+
+    {% csrf_token %}
+
+    <div class="row g-2 align-items-end">
+      <div class="col-md-6">
+        <label class="form-label">Nome do produto</label>
+        <input type="text"
+              name="produto"
+              class="form-control"
+              placeholder="Ex: Tinta acrílica premium"
+              required>
+      </div>
+
+      <div class="col-md-3">
+        <label class="form-label">NCM</label>
+        <input type="text"
+              name="ncm"
+              class="form-control"
+              placeholder="32091010"
+              required>
+      </div>
+
+      <div class="col-md-3 d-grid">
+        <button class="btn btn-primary">
+          <i class="bi bi-search me-1"></i>
+          Analisar item
+        </button>
+      </div>
+    </div>
+
+  </form>
+  
+  {% if filas_ativas %}
+    {% for fila in filas_ativas %}
+    <div class="alert alert-warning d-flex align-items-center gap-3 mb-3 py-2" id="fila-banner-{{ fila.id }}">
+      <div class="spinner-border spinner-border-sm text-warning" role="status"></div>
+      <div class="flex-grow-1">
+        <strong>{{ fila.get_status_display }}</strong>
+        {% if fila.total > 0 %}
+          — {{ fila.processados }} de {{ fila.total }} produtos
+          <span class="text-muted small">({{ fila.percentual }}%)</span>
+        {% endif %}
+        {% if fila.upload_lote %}<span class="text-muted small ms-1">· Lote #{{ fila.upload_lote_id }}</span>{% endif %}
+      </div>
+      <a href="{% url 'fila_analise_status' fila.id %}" class="btn btn-sm btn-outline-warning">Acompanhar</a>
+    </div>
+    {% endfor %}
+  {% endif %}
+
+  {% if filas_recentes %}
+  <div class="mb-3">
+    <div class="text-muted small mb-1">Análises recentes:</div>
+    <div class="d-flex flex-wrap gap-2">
+      {% for fila in filas_recentes %}
+        <a href="{% url 'fila_analise_status' fila.id %}"
+           class="btn btn-sm {% if fila.status == 'CONCLUIDO' %}btn-outline-success{% else %}btn-outline-danger{% endif %}">
+          #{{ fila.id }} {{ fila.get_status_display }}
+          <span class="text-muted">{{ fila.criado_em|date:"d/m H:i" }}</span>
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <form method="get" class="card card-body mb-3">
+    <div class="row g-2 align-items-end">
+      <div class="col-md-4">
+        <label class="form-label">Produto</label>
+        <input type="text" class="form-control" name="q" value="{{ filters.q }}" placeholder="Ex: tinta, cimento...">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">NCM</label>
+        <input type="text" class="form-control" name="ncm" value="{{ filters.ncm }}" placeholder="32091010">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Lote</label>
+        <input type="text" class="form-control" name="lote" value="{{ filters.lote }}" placeholder="ID do lote">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Status</label>
+        <select class="form-select" name="status">
+          <option value="" {% if not filters.status %}selected{% endif %}>Todos</option>
+          <option value="OK" {% if filters.status == "OK" %}selected{% endif %}>OK</option>
+          <option value="ERRO" {% if filters.status == "ERRO" %}selected{% endif %}>Erro</option>
+          <option value="PENDENTE" {% if filters.status == "PENDENTE" %}selected{% endif %}>Pendente</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <button class="btn btn-primary w-100" type="submit">Filtrar</button>
+      </div>
+    </div>
+  </form>
+
+  <div class="card">
+    <div class="table-responsive" style="overflow-x: hidden;">
+      <table class="table table-hover align-middle mb-0">
+        <thead>
+          <tr>
+            <th style="width: 32%;">Produto</th>
+            <th class="text-nowrap" style="width: 8%;">NCM</th>
+            <th style="width: 7%;">Status</th>
+            <th class="text-nowrap hide-lg" style="width: 7%;">ICMS</th>
+            <th class="text-nowrap hide-xl" style="width: 8%;">CST ICMS</th>
+            <th class="text-nowrap hide-xl" style="width: 8%;">CEST</th>
+            <th class="text-nowrap hide-xxl" style="width: 6%;">MVA</th>
+            <th class="text-nowrap hide-lg" style="width: 10%;">PIS/COFINS</th>
+            <th class="text-nowrap hide-md" style="width: 11%;">Consultado em</th>
+            <th style="width: 6%;"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in page_obj %}
+            {% with r=item.resultado %}
+            <tr>
+              <td class="col-produto">
+                <div class="fw-semibold produto-nome">{{ item.produto }}</div>
+                <div class="text-muted small">
+                  TIPI: {{ r.desc_tipi|default:"-" }}
+                </div>
+              </td>
+
+              <td class="text-nowrap">{{ item.ncm|default:"-" }}</td>
+
+              <td class="text-nowrap">
+                {% if item.cache %}
+                  {% if item.cache.status == "OK" %}
+                    <span class="badge bg-success">OK</span>
+                  {% else %}
+                    <span class="badge bg-danger">ERRO</span>
+                  {% endif %}
+                {% else %}
+                  <span class="badge bg-secondary">PENDENTE</span>
+                {% endif %}
+              </td>
+
+              <td class="text-nowrap hide-lg">{{ r.aliquota_icms_retornado|default:"-" }}</td>
+              <td class="text-nowrap hide-xl">{{ r.cst_icms|default:"-" }}</td>
+              <td class="text-nowrap hide-xl">{{ r.cest|default:"-" }}</td>
+              <td class="text-nowrap hide-xxl">{{ r.mva|default:"-" }}</td>
+              <td class="text-nowrap hide-lg">{{ r.cst_simples_pis_cofins|default:"-" }}</td>
+
+              <td class="text-nowrap hide-md">
+                {% if item.cache %}{{ item.cache.consultado_em|date:"d/m/Y H:i" }}{% else %}-{% endif %}
+              </td>
+
+              <td class="text-end">
+                <a class="btn btn-sm btn-outline-primary"
+                   href="{% url 'analise_tributaria_detail' empresa.id item.id %}">
+                  Ver
+                </a>
+              </td>
+            </tr>
+            {% endwith %}
+          {% empty %}
+            <tr>
+              <td colspan="11" class="text-center text-muted p-4">Nenhum item encontrado.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if page_obj.paginator.num_pages > 1 %}
+      <div class="card-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div class="text-muted small">
+          Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+        </div>
+
+        <div class="btn-group">
+          {% if page_obj.has_previous %}
+            <a class="btn btn-outline-secondary btn-sm"
+               href="?page={{ page_obj.previous_page_number }}&q={{ filters.q }}&ncm={{ filters.ncm }}&lote={{ filters.lote }}&status={{ filters.status }}">Anterior</a>
+          {% endif %}
+          {% if page_obj.has_next %}
+            <a class="btn btn-outline-secondary btn-sm"
+               href="?page={{ page_obj.next_page_number }}&q={{ filters.q }}&ncm={{ filters.ncm }}&lote={{ filters.lote }}&status={{ filters.status }}">Próxima</a>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% if filas_ativas %}
+<script>
+(function () {
+  const filas = [
+    {% for fila in filas_ativas %}
+    { id: {{ fila.id }}, jsonUrl: "{% url 'fila_analise_status_json' fila.id %}" }{% if not forloop.last %},{% endif %}
+    {% endfor %}
+  ];
+
+  function pollFila(fila) {
+    fetch(fila.jsonUrl)
+      .then(r => r.json())
+      .then(data => {
+        const banner = document.getElementById("fila-banner-" + fila.id);
+        if (!banner) return;
+
+        if (data.status === "CONCLUIDO" || data.status === "ERRO") {
+          // recarrega a página para mostrar resultados e mover fila p/ seção "recentes"
+          window.location.reload();
+          return;
+        }
+
+        // atualiza texto do progresso
+        const textoEl = banner.querySelector(".flex-grow-1");
+        if (textoEl && data.total > 0) {
+          textoEl.innerHTML = `<strong>${data.status_display}</strong> — ${data.processados} de ${data.total} produtos`;
+        }
+
+        setTimeout(() => pollFila(fila), 2000);
+      })
+      .catch(() => setTimeout(() => pollFila(fila), 3000));
+  }
+
+  filas.forEach(f => setTimeout(() => pollFila(f), 2000));
+})();
+</script>
+{% endif %}
+
+{% endblock %}

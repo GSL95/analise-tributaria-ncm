@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% block title %}Análise em andamento{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h3 class="mb-0">Análise Tributária</h3>
+    <div class="text-secondary small">Empresa: <strong>{{ fila.empresa.razao_social }}</strong></div>
+  </div>
+</div>
+
+<div class="card sombra_cards">
+  <div class="card-body">
+
+    <div class="d-flex align-items-center gap-2 mb-3">
+      <span id="badge-status" class="badge fs-6
+        {% if fila.status == 'PENDENTE' %}bg-secondary
+        {% elif fila.status == 'ANALISANDO' %}bg-primary
+        {% elif fila.status == 'CONCLUIDO' %}bg-success
+        {% elif fila.status == 'CANCELADO' %}bg-warning text-dark
+        {% else %}bg-danger{% endif %}">
+        {{ fila.get_status_display }}
+      </span>
+      <span id="texto-progresso" class="text-secondary small">
+        {% if fila.total > 0 %}{{ fila.processados }} de {{ fila.total }} produtos
+        {% elif fila.status == 'PENDENTE' or fila.status == 'ANALISANDO' %}Contando produtos...
+        {% endif %}
+      </span>
+    </div>
+
+    {# Barra indeterminada — fica 100% animada enquanto não temos total #}
+    <div id="barra-wrap" class="progress mb-3" style="height: 22px;">
+      <div id="barra-progresso"
+           class="progress-bar progress-bar-striped progress-bar-animated
+             {% if fila.status == 'CONCLUIDO' %}bg-success
+             {% elif fila.status == 'CANCELADO' %}bg-warning
+             {% elif fila.status == 'ERRO' %}bg-danger
+             {% endif %}"
+           role="progressbar"
+           style="width: {% if fila.total > 0 %}{% widthratio fila.processados fila.total 100 %}{% else %}100{% endif %}%"
+           aria-valuenow="{{ fila.processados }}"
+           aria-valuemin="0"
+           aria-valuemax="{{ fila.total|default:100 }}">
+        <span id="texto-percentual">
+          {% if fila.total > 0 %}{% widthratio fila.processados fila.total 100 %}%{% endif %}
+        </span>
+      </div>
+    </div>
+
+    <div id="produto-atual" class="text-secondary small mb-3
+      {% if fila.status != 'ANALISANDO' %}d-none{% endif %}">
+      <span class="me-1">&#9654;</span>
+      <span id="produto-atual-texto">{{ fila.produto_atual }}</span>
+    </div>
+
+    <div id="alerta-erro" class="alert alert-danger {% if fila.status != 'ERRO' %}d-none{% endif %}">
+      <span id="alerta-erro-texto">{% if fila.erro_msg %}Erro: {{ fila.erro_msg }}{% endif %}</span>
+    </div>
+
+    <div id="alerta-cancelado" class="alert alert-warning {% if fila.status != 'CANCELADO' %}d-none{% endif %}">
+      Análise cancelada. {{ fila.processados }} de {{ fila.total }} produtos foram processados antes do cancelamento.
+    </div>
+
+    <div class="d-flex gap-2 flex-wrap">
+      <div id="acoes-concluido" class="{% if fila.status != 'CONCLUIDO' %}d-none{% endif %}">
+        <a href="{% url 'analise_tributaria_list' fila.empresa.id %}{% if fila.upload_lote_id %}?lote={{ fila.upload_lote_id }}{% endif %}"
+           class="btn btn-success">
+          Ver resultados
+        </a>
+      </div>
+
+      <div id="acoes-cancelar"
+           class="{% if fila.status == 'CONCLUIDO' or fila.status == 'CANCELADO' or fila.status == 'ERRO' %}d-none{% endif %}">
+        <form method="post" action="{% url 'fila_analise_cancelar' fila.id %}"
+              onsubmit="return confirm('Cancelar a análise em andamento?')">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-outline-danger">Cancelar análise</button>
+        </form>
+      </div>
+
+      <div id="acoes-retomar"
+           class="{% if fila.status != 'ERRO' and fila.status != 'CANCELADO' %}d-none{% endif %}">
+        <form method="post" action="{% url 'analise_tributaria_retomar' fila.empresa.id fila.id %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-primary">Continuar de onde parou</button>
+        </form>
+      </div>
+
+      <a href="{% url 'analise_tributaria_list' fila.empresa.id %}" class="btn btn-outline-secondary">
+        Voltar para análise
+      </a>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function () {
+  const jsonUrl = "{% url 'fila_analise_status_json' fila.id %}";
+  const resultUrl = "{% url 'analise_tributaria_list' fila.empresa.id %}{% if fila.upload_lote_id %}?lote={{ fila.upload_lote_id }}{% endif %}";
+
+  const badgeEl      = document.getElementById("badge-status");
+  const barraEl      = document.getElementById("barra-progresso");
+  const percentualEl = document.getElementById("texto-percentual");
+  const progressoEl  = document.getElementById("texto-progresso");
+  const erroEl         = document.getElementById("alerta-erro");
+  const produtoAtualEl = document.getElementById("produto-atual");
+  const produtoTextoEl = document.getElementById("produto-atual-texto");
+
+  const CORES_BADGE = {
+    PENDENTE:  "bg-secondary",
+    ANALISANDO: "bg-primary",
+    CONCLUIDO: "bg-success",
+    ERRO:      "bg-danger",
+    CANCELADO: "bg-warning text-dark",
+  };
+
+  const STATUS_FINAIS = ["CONCLUIDO", "ERRO", "CANCELADO"];
+
+  function atualizar() {
+    fetch(jsonUrl, { credentials: "same-origin" })
+      .then(r => {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      })
+      .then(data => {
+        // badge
+        badgeEl.className = "badge fs-6 " + (CORES_BADGE[data.status] || "bg-secondary");
+        badgeEl.textContent = data.status_display;
+
+        if (data.produto_atual && data.status === "ANALISANDO") {
+          produtoAtualEl.classList.remove("d-none");
+          produtoTextoEl.textContent = data.produto_atual;
+        } else {
+          produtoAtualEl.classList.add("d-none");
+        }
+
+        if (data.total > 0) {
+          const pct = data.percentual;
+          // largura mínima de 1% para a barra nunca desaparecer enquanto processa
+          const largura = Math.max(pct, data.processados > 0 ? 1 : 0);
+          barraEl.style.width = largura + "%";
+          barraEl.setAttribute("aria-valuenow", data.processados);
+          barraEl.setAttribute("aria-valuemax", data.total);
+          percentualEl.textContent = pct.toFixed(1) + "%";
+          progressoEl.textContent = data.processados + " de " + data.total + " produtos (" + pct.toFixed(1) + "%)";
+        } else {
+          // ainda contando — mantém barra 100% animada
+          barraEl.style.width = "100%";
+          progressoEl.textContent = "Contando produtos...";
+        }
+
+        if (data.status === "CONCLUIDO") {
+          barraEl.style.width = "100%";
+          barraEl.classList.remove("progress-bar-animated");
+          barraEl.classList.add("bg-success");
+          percentualEl.textContent = "100%";
+          document.getElementById("acoes-concluido").classList.remove("d-none");
+          document.getElementById("acoes-cancelar").classList.add("d-none");
+          setTimeout(() => { window.location.href = resultUrl; }, 2000);
+          return;
+        }
+
+        if (data.status === "CANCELADO") {
+          barraEl.classList.remove("progress-bar-animated");
+          barraEl.classList.add("bg-warning");
+          document.getElementById("alerta-cancelado").classList.remove("d-none");
+          document.getElementById("acoes-cancelar").classList.add("d-none");
+          document.getElementById("acoes-retomar").classList.remove("d-none");
+          return;
+        }
+
+        if (data.status === "ERRO") {
+          barraEl.classList.remove("progress-bar-animated");
+          barraEl.classList.add("bg-danger");
+          erroEl.classList.remove("d-none");
+          document.getElementById("alerta-erro-texto").textContent = "Erro: " + (data.erro_msg || "erro desconhecido");
+          document.getElementById("acoes-cancelar").classList.add("d-none");
+          document.getElementById("acoes-retomar").classList.remove("d-none");
+          return;
+        }
+
+        // ainda em andamento — continua polling
+        setTimeout(atualizar, 1000);
+      })
+      .catch(err => {
+        console.warn("[fila-analise] erro no poll:", err);
+        setTimeout(atualizar, 3000);
+      });
+  }
+
+  const statusInicial = "{{ fila.status }}";
+  if (!STATUS_FINAIS.includes(statusInicial)) {
+    setTimeout(atualizar, 800);
+  }
+})();
+</script>
+{% endblock %}

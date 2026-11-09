@@ -1,0 +1,171 @@
+{# templates/core/divergencias.html #}
+{% extends "base.html" %}
+{% block title %}Divergências Fiscais{% endblock %}
+{% block content %}
+
+<h3 class="mb-3 text-center">Divergências Fiscais</h3>
+
+{% if not empresa %}
+  <div class="alert alert-warning text-center">
+    Selecione uma empresa para visualizar divergências.
+  </div>
+{% else %}
+
+<div class="card sombra_cards mb-3 text-center">
+  <div class="card-body">
+    <form class="row g-2 align-items-end justify-content-center" method="get">
+      <div class="col-12 col-md-4">
+        <label class="form-label">Buscar</label>
+        <input name="q" value="{{ q }}" class="form-control text-center"
+               placeholder="Produto, NCM, CFOP, chave, número, esperado/encontrado">
+      </div>
+
+      <div class="col-6 col-md-2">
+        <label class="form-label">Severidade</label>
+        <select name="sev" class="form-select text-center">
+          <option value="">Todas</option>
+          <option value="critica" {% if sev == "critica" %}selected{% endif %}>Crítica</option>
+          <option value="alta" {% if sev == "alta" %}selected{% endif %}>Alta</option>
+          <option value="media" {% if sev == "media" %}selected{% endif %}>Média</option>
+          <option value="baixa" {% if sev == "baixa" %}selected{% endif %}>Baixa</option>
+        </select>
+      </div>
+
+      <div class="col-6 col-md-3">
+        <label class="form-label">Tipo</label>
+        <select name="tipo" class="form-select text-center">
+          <option value="">Todos</option>
+          {% for t in tipos %}
+            <option value="{{ t }}" {% if tipo == t %}selected{% endif %}>{{ t }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="col-6 col-md-2">
+        <label class="form-label">Nota ID</label>
+        <input name="nota" value="{{ nota_id }}" class="form-control text-center" placeholder="Ex: 123">
+      </div>
+
+      <div class="col-12 col-md-1 d-flex gap-2">
+        <button class="btn btn-dark w-100" type="submit">OK</button>
+        <a class="btn btn-outline-secondary w-100" href="?">X</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card sombra_cards text-center">
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-sm align-middle text-center">
+        <thead class="table-light">
+          <tr>
+            <th>Data</th>
+            <th>Sev</th>
+            <th>Tipo</th>
+            <th>Produto</th>
+            <th>NCM</th>
+            <th>CFOP</th>
+            <th>Esperado</th>
+            <th>Encontrado</th>
+            <th>Nota</th>
+            <th>Chave</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for d in page.object_list %}
+          <tr>
+            <td>{{ d.criado_em|date:"d/m/Y H:i" }}</td>
+
+            <td>
+              {% if d.severidade == "critica" %}
+                <span class="badge bg-danger">crítica</span>
+              {% elif d.severidade == "alta" %}
+                <span class="badge bg-warning text-dark">alta</span>
+              {% elif d.severidade == "media" %}
+                <span class="badge bg-secondary">média</span>
+              {% else %}
+                <span class="badge bg-light text-dark">baixa</span>
+              {% endif %}
+            </td>
+
+            <td><code>{{ d.tipo }}</code></td>
+
+            <td style="max-width: 320px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
+                title="{{ d.item.produto }}">
+              {{ d.item.produto }}
+            </td>
+
+            <td><code>{{ d.item.ncm }}</code></td>
+            <td><code>{{ d.item.cfop }}</code></td>
+
+            <td style="max-width: 240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
+                title="{{ d.esperado }}">
+              {{ d.esperado|default:"-" }}
+            </td>
+
+            <td style="max-width: 240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
+                title="{{ d.encontrado }}">
+              {{ d.encontrado|default:"-" }}
+            </td>
+
+            <td>
+              <span class="badge bg-dark">ID {{ d.item.nota_id }}</span>
+              <div class="small text-muted">Nº {{ d.item.nota.numero|default:"-" }}</div>
+            </td>
+
+            <td style="max-width: 260px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+              <code title="{{ d.item.nota.chave }}">{{ d.item.nota.chave }}</code>
+            </td>
+
+            <td>
+              <a class="btn btn-sm btn-outline-dark"
+                 href="{% url 'notas' %}?nota={{ d.item.nota_id }}">
+                Ver nota
+              </a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="11" class="text-muted text-center">Nenhuma divergência encontrada.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if page %}
+    <nav class="mt-2">
+      <ul class="pagination pagination-sm justify-content-center mb-0">
+        {% if page.has_previous %}
+          <li class="page-item">
+            <a class="page-link text-dark"
+               href="?page={{ page.previous_page_number }}&q={{ q|urlencode }}&sev={{ sev }}&tipo={{ tipo }}&nota={{ nota_id }}">
+              Anterior
+            </a>
+          </li>
+        {% else %}
+          <li class="page-item disabled"><span class="page-link">Anterior</span></li>
+        {% endif %}
+
+        <li class="page-item disabled">
+          <span class="page-link">Página {{ page.number }} de {{ page.paginator.num_pages }}</span>
+        </li>
+
+        {% if page.has_next %}
+          <li class="page-item">
+            <a class="page-link text-dark"
+               href="?page={{ page.next_page_number }}&q={{ q|urlencode }}&sev={{ sev }}&tipo={{ tipo }}&nota={{ nota_id }}">
+              Próxima
+            </a>
+          </li>
+        {% else %}
+          <li class="page-item disabled"><span class="page-link">Próxima</span></li>
+        {% endif %}
+      </ul>
+    </nav>
+    {% endif %}
+  </div>
+</div>
+
+{% endif %}
+{% endblock %}

@@ -1,0 +1,368 @@
+{# templates/dashboard.html #}
+{% extends "base.html" %}
+{% block title %}Dashboard - Análise Tributária{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h3 class="mb-0">Dashboard</h3>
+    <div class="text-secondary small">Janela: últimos 30 dias (desde {{ dt_ini|date:"d/m/Y H:i" }})</div>
+  </div>
+</div>
+
+{% if sem_conta %}
+  <div class="alert alert-warning">Seu usuário ainda não está vinculado a uma conta.</div>
+{% endif %}
+
+{# KPIs gerais #}
+<div class="row g-3 text-center justify-content-center align-items-stretch">
+  <div class="col-md-3 d-flex">
+    <div class="card sombra_cards h-100 w-100">
+      <div class="card-body d-flex flex-column justify-content-center">
+        <div class="text-secondary small">Empresas ativas</div>
+        <div class="fs-3 fw-bold">{{ empresas_ativas }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3 d-flex">
+    <div class="card sombra_cards h-100 w-100">
+      <div class="card-body d-flex flex-column justify-content-center">
+        <div class="text-secondary small">Uploads (30 dias)</div>
+        <div class="fs-3 fw-bold">{{ uploads_30d }}</div>
+        <div class="small text-secondary">Pend./Proc.: {{ uploads_pendentes }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3 d-flex">
+    <div class="card sombra_cards h-100 w-100">
+      <div class="card-body d-flex flex-column justify-content-center">
+        <div class="text-secondary small">Uploads com erro (30 dias)</div>
+        <div class="fs-3 fw-bold">{{ uploads_erro_30d }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3 d-flex">
+    <div class="card sombra_cards h-100 w-100">
+      <div class="card-body d-flex flex-column justify-content-center">
+        <div class="text-secondary small">Itens analisados (30 dias)</div>
+        <div class="fs-3 fw-bold">{{ itens_30d }}</div>
+        <div class="small text-secondary">NCMs únicos: {{ ncm_unicos_30d }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# Qualidade + Cobertura tributária #}
+<div class="row g-4 mt-1 text-center justify-content-center">
+  <div class="col-md-3">
+    <div class="card sombra_cards"><div class="card-body">
+      <div class="text-secondary small">Qualidade (sem NCM)</div>
+      <div class="fs-3 fw-bold">{{ perc_sem_ncm_30d }}%</div>
+      <div class="small text-secondary">Qtd: {{ itens_sem_ncm_30d }}</div>
+    </div></div>
+  </div>
+  {% comment %} <div class="col-md-3">
+    <div class="card sombra_cards"><div class="card-body">
+      <div class="text-secondary small">Status da análise (snapshot)</div>
+      <div class="d-flex gap-3 align-items-end">
+        <div>
+          <div class="fs-4 fw-bold">{{ perc_snapshot_ok_30d }}%</div>
+          <div class="small text-secondary">OK</div>
+        </div>
+        <div>
+          <div class="fs-4 fw-bold">{{ perc_snapshot_erro_30d }}%</div>
+          <div class="small text-secondary">ERRO</div>
+        </div>
+      </div>
+    </div></div>
+  </div> {% endcomment %}
+  <div class="col-md-4">
+    <div class="card sombra_cards"><div class="card-body">
+      <div class="text-secondary small">ST interna aplicável</div>
+      <div class="fs-3 fw-bold">{{ perc_st_interna_30d }}%</div>
+      <div class="small text-secondary">No mix analisado (30 dias)</div>
+    </div></div>
+  </div>
+  <div class="col-md-4">
+    <div class="card sombra_cards"><div class="card-body">
+      <div class="text-secondary small">ST interestadual aplicável</div>
+      <div class="fs-3 fw-bold">{{ perc_st_inter_30d }}%</div>
+      <div class="small text-secondary">Quando informado no retorno</div>
+    </div></div>
+  </div>
+</div>
+
+<div class="row g-3 mt-1 text-center justify-content-center">
+  <div class="col-md-6">
+    <div class="card sombra_cards"><div class="card-body">
+      <div class="text-secondary small">Itens com observação ICMS</div>
+      <div class="fs-3 fw-bold">{{ itens_com_obs_icms_30d }}</div>
+      <div class="small text-secondary">Indica regra temporal/exceções</div>
+    </div></div>
+  </div>
+  <div class="col-md-6">
+    <div class="card sombra_cards"><div class="card-body">
+      <div class="text-secondary small">Itens com observação ST</div>
+      <div class="fs-3 fw-bold">{{ itens_com_obs_st_30d }}</div>
+      <div class="small text-secondary">FECOP/condições especiais etc.</div>
+    </div></div>
+  </div>
+</div>
+
+{# Operação #}
+<div class="row g-3 mt-1">
+  <div class="col-lg-12">
+    <div class="card sombra_cards"><div class="card-body">
+      <div class="fw-semibold mb-2">Últimos lotes</div>
+      {% if ultimos_lotes %}
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead><tr><th>Empresa</th><th>Tipo</th><th>Status</th><th>Criado em</th></tr></thead>
+            <tbody>
+              {% for lote in ultimos_lotes %}
+              <tr>
+                <td>{{ lote.empresa.razao_social }}</td>
+                <td>{{ lote.get_tipo_display }}</td>
+                <td>
+                  {% if lote.status == "CONCLUIDO" %}
+                    <span class="badge bg-success">{{ lote.get_status_display }}</span>
+                  {% elif lote.status == "ERRO" %}
+                    <span class="badge bg-danger">{{ lote.get_status_display }}</span>
+                  {% elif lote.status == "PROCESSANDO" %}
+                    <span class="badge bg-warning text-dark">{{ lote.get_status_display }}</span>
+                  {% else %}
+                    <span class="badge bg-secondary">{{ lote.get_status_display }}</span>
+                  {% endif %}
+                </td>
+                <td class="text-secondary small">{{ lote.criado_em|date:"d/m/Y H:i" }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="text-secondary small">Ainda não há uploads.</div>
+      {% endif %}
+    </div></div>
+  </div>
+</div>
+
+{# Tributário #}
+<div class="row g-3 mt-1 align-items-stretch">
+
+  <div class="col-lg-6 d-flex">
+    <div class="card sombra_cards h-100 w-100">
+      <div class="card-body d-flex flex-column">
+        <div class="fw-semibold mb-2">Distribuição de alíquota ICMS (30 dias)</div>
+
+        {% if dist_aliq_icms_30d %}
+          <div class="table-responsive flex-grow-1">
+            <table class="table table-sm align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>Alíquota</th>
+                  <th class="text-end">Qtd</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in dist_aliq_icms_30d %}
+                <tr>
+                  <td>{{ row.resultado_snapshot__aliquota_icms_retornado }}%</td>
+                  <td class="text-end">{{ row.qtd }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="text-secondary small mt-auto">Sem dados de alíquota no período.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6 d-flex">
+    <div class="card sombra_cards h-100 w-100">
+      <div class="card-body d-flex flex-column">
+        <div class="fw-semibold mb-2">Distribuição de empresas por regime</div>
+
+        {% if dist_regime %}
+          <div class="table-responsive flex-grow-1">
+            <table class="table table-sm align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>Regime</th>
+                  <th class="text-end">Qtd</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in dist_regime %}
+                <tr>
+                  <td>{{ row.regime }}</td>
+                  <td class="text-end">{{ row.qtd }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="text-secondary small mt-auto">Sem dados.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+<div class="row g-3 mt-1 align-items-stretch">
+
+  <div class="col-lg-6 d-flex">
+    <div class="card sombra_cards h-100 w-100">
+      <div class="card-body d-flex flex-column">
+        <div class="fw-semibold mb-2">Top bases legais de ICMS (30 dias)</div>
+
+        {% if top_bases_icms_30d %}
+          <div class="table-responsive flex-grow-1">
+            <table class="table table-sm align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>Base legal</th>
+                  <th class="text-end">Qtd</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in top_bases_icms_30d %}
+                <tr>
+                  <td class="small">{{ row.resultado_snapshot__base_legal_icms_retornado }}</td>
+                  <td class="text-end">{{ row.qtd }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="text-secondary small mt-auto">
+            Sem bases legais mapeadas no período.
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6 d-flex">
+    <div class="card sombra_cards h-100 w-100">
+      <div class="card-body d-flex flex-column">
+        <div class="fw-semibold mb-2">Distribuição CST PIS / COFINS (30 dias)</div>
+
+        <div class="row g-2 flex-grow-1">
+          <div class="col-md-6 d-flex flex-column">
+            <div class="text-secondary small mb-1">CST PIS</div>
+
+            {% if dist_cst_pis_30d %}
+              <div class="table-responsive flex-grow-1">
+                <table class="table table-sm align-middle mb-0">
+                  <thead>
+                    <tr>
+                      <th>CST</th>
+                      <th class="text-end">Qtd</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for row in dist_cst_pis_30d %}
+                    <tr>
+                      <td class="small">{{ row.resultado_snapshot__cst_pis }}</td>
+                      <td class="text-end">{{ row.qtd }}</td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            {% else %}
+              <div class="text-secondary small mt-auto">Sem dados.</div>
+            {% endif %}
+          </div>
+
+          <div class="col-md-6 d-flex flex-column">
+            <div class="text-secondary small mb-1">CST COFINS</div>
+
+            {% if dist_cst_cofins_30d %}
+              <div class="table-responsive flex-grow-1">
+                <table class="table table-sm align-middle mb-0">
+                  <thead>
+                    <tr>
+                      <th>CST</th>
+                      <th class="text-end">Qtd</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for row in dist_cst_cofins_30d %}
+                    <tr>
+                      <td class="small">{{ row.resultado_snapshot__cst_cofins }}</td>
+                      <td class="text-end">{{ row.qtd }}</td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            {% else %}
+              <div class="text-secondary small mt-auto">Sem dados.</div>
+            {% endif %}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div>
+
+{# Mix e cadastros #}
+<div class="row g-3 mt-1">
+  <div class="col-lg-6">
+    <div class="card sombra_cards"><div class="card-body">
+      <div class="fw-semibold mb-2">Top NCMs mais recorrentes (30 dias)</div>
+      {% if top_ncms_30d %}
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead><tr><th>NCM</th><th class="text-end">Qtd</th></tr></thead>
+            <tbody>
+              {% for row in top_ncms_30d %}
+              <tr><td>{{ row.ncm }}</td><td class="text-end">{{ row.qtd }}</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="text-secondary small">Sem dados.</div>
+      {% endif %}
+    </div></div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card sombra_cards"><div class="card-body">
+      <div class="fw-semibold mb-2">Empresas sem upload nos últimos 30 dias</div>
+      {% if empresas_inativas %}
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead><tr><th>Empresa</th><th class="text-end">Ação</th></tr></thead>
+            <tbody>
+              {% for emp in empresas_inativas %}
+              <tr>
+                <td>{{ emp.razao_social }}</td>
+                <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="{% url 'empresas' %}">Ver</a></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="text-secondary small">Nenhuma empresa inativa no período.</div>
+      {% endif %}
+    </div></div>
+  </div>
+</div>
+{% endblock %}

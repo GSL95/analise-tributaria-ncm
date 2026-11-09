@@ -1,0 +1,336 @@
+{# templates/core/relatorio_analise_cliente.html (mesmo template; apenas melhoria visual e textual) #}
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Relatório de Diagnóstico Tributário - {{ empresa.razao_social|default:"Empresa" }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+<style>
+  .relatorio-wrap { max-width: 980px; margin: 0 auto; }
+  .paper{
+    background:#fff; border:1px solid rgba(0,0,0,.08);
+    border-radius:14px; box-shadow:0 10px 26px rgba(0,0,0,.06);
+  }
+  .header { border-bottom: 1px solid rgba(0,0,0,.08); }
+  .title { letter-spacing:.2px; }
+  .sec-title { font-weight:800; font-size:1.05rem; margin-bottom:.65rem; }
+  .p { line-height:1.75; }
+  .meta .label { width: 170px; color: rgba(0,0,0,.6); font-size:.88rem; }
+  .meta .value { font-weight: 650; }
+  .kpi{
+    border:1px solid rgba(0,0,0,.08);
+    border-radius:14px;
+    padding: .95rem 1rem;
+    background: linear-gradient(180deg, rgba(0,0,0,.01), rgba(0,0,0,.00));
+  }
+  .kpi .k { color: rgba(0,0,0,.62); font-size:.82rem; }
+  .kpi .v { font-weight: 850; font-size:1.25rem; line-height:1.1; }
+  .kpi .h { color: rgba(0,0,0,.55); font-size:.82rem; }
+  .badge-soft{
+    background: rgba(0,0,0,.04);
+    border: 1px solid rgba(0,0,0,.08);
+    color: rgba(0,0,0,.72);
+    font-weight: 650;
+  }
+  .callout{
+    border:1px solid rgba(0,0,0,.08);
+    background: rgba(13,110,253,.03);
+    border-radius:14px;
+    padding: 1rem 1rem;
+  }
+  .table-sm td, .table-sm th { padding: .45rem .55rem; }
+  .footer { border-top: 1px solid rgba(0,0,0,.08); color: rgba(0,0,0,.6); font-size:.88rem; }
+  @media print {
+    .no-print { display:none !important; }
+    .paper { box-shadow:none; border:none; border-radius:0; }
+    body { background:#fff !important; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="relatorio-wrap">
+
+  <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3 no-print">
+    <div>
+      <h3 class="mb-0">Relatório</h3>
+      <div class="text-secondary small">Versão para apresentação ao cliente</div>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="{% url 'relatorios' %}" class="btn btn-outline-secondary btn-sm">Voltar</a>
+      <button class="btn btn-primary btn-sm" onclick="window.print()">Imprimir / Salvar PDF</button>
+      <a href="?export=word" class="btn btn-outline-primary btn-sm">
+        Exportar Word
+      </a>
+    </div>
+  </div>
+
+  <div class="paper">
+    <div class="p-4 header">
+      <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+        <div>
+          <div class="text-uppercase text-secondary small">Relatório técnico</div>
+          <div class="h4 mb-1 title">Relatório de Diagnóstico Tributário</div>
+          <div class="text-secondary small">
+            Emitido em {{ emitido_em|date:"d/m/Y H:i" }}
+          </div>
+        </div>
+        <div class="text-end">
+          <div class="small text-secondary">Sistema</div>
+          <div class="fw-bold">Morpho • Análise Tributária</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="p-4">
+
+      <div class="mb-4">
+        <div class="sec-title">1. Identificação e contexto</div>
+        <div class="meta">
+          <div class="d-flex mb-1"><div class="label">Empresa</div><div class="value">{{ empresa.razao_social }}</div></div>
+          <div class="d-flex mb-1"><div class="label">CNPJ</div><div class="value">{{ empresa.cnpj }}</div></div>
+          {% if empresa.uf %}<div class="d-flex mb-1"><div class="label">UF (referência)</div><div class="value">{{ empresa.uf }}</div></div>{% endif %}
+          <div class="d-flex mb-1"><div class="label">Regime</div><div class="value">{{ empresa.get_regime_tributario_display|default:"—" }}</div></div>
+          <div class="d-flex mb-1"><div class="label">Atividade</div><div class="value">{{ empresa.get_atividade_origem_display|default:"—" }} → {{ empresa.get_atividade_destino_display|default:"—" }}</div></div>
+        </div>
+      </div>
+
+      <div class="mb-4">
+        <div class="sec-title">2. Resumo executivo</div>
+
+        <div class="callout mb-3">
+          <div class="fw-bold mb-1">Objetivo</div>
+          <div class="p mb-0">
+            Consolidar a leitura e o enquadramento tributário dos itens importados e do cadastro de produtos,
+            destacando cobertura atual, qualidade das análises, achados recorrentes e recomendações práticas para
+            reduzir risco, padronizar o cadastro e acelerar rotinas fiscais.
+          </div>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-md-3">
+            <div class="kpi">
+              <div class="k">Itens processados</div>
+              <div class="v">{{ qtd_itens|default:0 }}</div>
+              <div class="h">Base operacional</div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="kpi">
+              <div class="k">NCMs distintos</div>
+              <div class="v">{{ qtd_ncms|default:0 }}</div>
+              <div class="h">Variedade do cadastro</div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="kpi">
+              <div class="k">Cobertura (itens)</div>
+              <div class="v">{{ cobertura_pct|default:0 }}%</div>
+              <div class="h">Itens com enquadramento</div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="kpi">
+              <div class="k">Pendências</div>
+              <div class="v">{{ qtd_sem_cache|default:0 }}</div>
+              <div class="h">Itens sem consulta</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2 mt-3">
+          <span class="badge badge-soft rounded-pill px-3 py-2">Produtos cadastrados: <strong class="ms-1">{{ qtd_produtos|default:0 }}</strong></span>
+          <span class="badge badge-soft rounded-pill px-3 py-2">Lotes importados: <strong class="ms-1">{{ qtd_lotes|default:0 }}</strong></span>
+          <span class="badge badge-soft rounded-pill px-3 py-2">Sucesso (cache): <strong class="ms-1">{{ taxa_sucesso_cache_pct|default:0 }}%</strong></span>
+          <span class="badge badge-soft rounded-pill px-3 py-2">Erro (cache): <strong class="ms-1">{{ taxa_erro_cache_pct|default:0 }}%</strong></span>
+          <span class="badge badge-soft rounded-pill px-3 py-2">Atualizações 30 dias: <strong class="ms-1">{{ qtd_atualizados_30d|default:0 }}</strong></span>
+        </div>
+
+        {% if texto_principal %}
+          <div class="mt-3">
+            <div class="small text-secondary mb-1">Síntese gerada automaticamente</div>
+            <pre class="p-3 mb-0" style="white-space:pre-wrap;border-radius:14px;border:1px solid rgba(0,0,0,.08);background:rgba(0,0,0,.02);">{{ texto_principal }}</pre>
+          </div>
+        {% endif %}
+      </div>
+
+      <div class="mb-4">
+        <div class="sec-title">3. Indicadores de qualidade e rastreabilidade</div>
+
+        <div class="row g-3">
+          <div class="col-md-6">
+            <div class="kpi h-100">
+              <div class="k mb-2">Cobertura detalhada</div>
+              <table class="table table-sm mb-0">
+                <tbody>
+                  <tr><td class="text-secondary">Itens com enquadramento</td><td class="text-end fw-bold">{{ qtd_itens_com_cache|default:0 }}</td></tr>
+                  <tr><td class="text-secondary">Itens pendentes (sem cache)</td><td class="text-end fw-bold">{{ qtd_sem_cache|default:0 }}</td></tr>
+                  <tr><td class="text-secondary">Cobertura por itens</td><td class="text-end fw-bold">{{ cobertura_pct|default:0 }}%</td></tr>
+                  <tr><td class="text-secondary">Cobertura por NCM (proxy)</td><td class="text-end fw-bold">{{ cobertura_ncms_pct|default:0 }}%</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="col-md-6">
+            <div class="kpi h-100">
+              <div class="k mb-2">Rastreabilidade de importações</div>
+              <table class="table table-sm mb-0">
+                <tbody>
+                  <tr><td class="text-secondary">Arquivos importados</td><td class="text-end fw-bold">{{ resumo_arquivos.qtd_arquivos|default:0 }}</td></tr>
+                  <tr><td class="text-secondary">Volume total</td><td class="text-end fw-bold">{{ resumo_arquivos.total_bytes_fmt|default:"0 B" }}</td></tr>
+                  <tr>
+                    <td class="text-secondary">Último lote</td>
+                    <td class="text-end fw-bold">
+                      {% if ultimo_lote %}
+                        {{ ultimo_lote.criado_em|date:"d/m/Y H:i" }}
+                      {% else %}
+                        —
+                      {% endif %}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="text-secondary">Janela de itens</td>
+                    <td class="text-end fw-bold">
+                      {% if range_itens.dt_min %}{{ range_itens.dt_min|date:"d/m/Y" }}{% else %}—{% endif %}
+                      {% if range_itens.dt_max %} → {{ range_itens.dt_max|date:"d/m/Y" }}{% endif %}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        {% if top_erros and top_erros|length > 0 %}
+          <div class="mt-3">
+            <div class="small text-secondary mb-1">Erros mais recorrentes (prioridade de correção)</div>
+            <div class="table-responsive">
+              <table class="table table-sm align-middle">
+                <thead>
+                  <tr>
+                    <th>Ocorrência</th>
+                    <th class="text-end">Quantidade</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for e in top_erros %}
+                    <tr>
+                      <td class="text-break">{{ e.erro }}</td>
+                      <td class="text-end fw-bold">{{ e.qtd }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        {% endif %}
+      </div>
+
+      <div class="mb-4">
+        <div class="sec-title">4. Principais achados (padrões recorrentes)</div>
+
+        <div class="row g-3">
+          <div class="col-md-6">
+            <div class="kpi h-100">
+              <div class="k mb-2">Bases legais mais frequentes (ICMS)</div>
+              {% if top_bases and top_bases|length > 0 %}
+                <div class="table-responsive">
+                  <table class="table table-sm mb-0">
+                    <tbody>
+                      {% for b in top_bases %}
+                        <tr><td class="text-break">{{ b.base }}</td><td class="text-end fw-bold">{{ b.qtd }}</td></tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              {% else %}
+                <div class="text-secondary">Sem informação disponível no snapshot.</div>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="col-md-6">
+            <div class="kpi h-100">
+              <div class="k mb-2">NCMs mais presentes no cadastro</div>
+              {% if top_ncms and top_ncms|length > 0 %}
+                <div class="table-responsive">
+                  <table class="table table-sm mb-0">
+                    <tbody>
+                      {% for n in top_ncms %}
+                        <tr><td>{{ n.ncm }}</td><td class="text-end fw-bold">{{ n.qtd }}</td></tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              {% else %}
+                <div class="text-secondary">Sem ranking disponível.</div>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="col-md-12">
+            <div class="kpi h-100">
+              <div class="k mb-2">Segmentos de ST recorrentes</div>
+              {% if top_segmentos and top_segmentos|length > 0 %}
+                <div class="table-responsive">
+                  <table class="table table-sm mb-0">
+                    <tbody>
+                      {% for s in top_segmentos %}
+                        <tr><td class="text-break">{{ s.segmento }}</td><td class="text-end fw-bold">{{ s.qtd }}</td></tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              {% else %}
+                <div class="text-secondary">Sem informação disponível no snapshot.</div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mb-4">
+        <div class="sec-title">5. Recomendações (plano de ação objetivo)</div>
+
+        <ol class="mb-0">
+          <li class="mb-2">
+            <strong>Fechar cobertura do cadastro.</strong>
+            Priorizar os itens pendentes ({{ qtd_sem_cache|default:0 }}) e os NCMs mais recorrentes.
+            Meta sugerida: elevar cobertura (itens) para <strong>≥ 95%</strong>.
+          </li>
+          <li class="mb-2">
+            <strong>Padronizar regras por contexto.</strong>
+            Validar com o time fiscal: UF de referência, operações (CFOPs praticados), regime e cadeia (origem → destino),
+            reduzindo divergência entre compra, venda e escrituração.
+          </li>
+          <li class="mb-2">
+            <strong>Tratar causas de erro.</strong>
+            Atacar os erros mais recorrentes (quando existirem), pois eles impactam a taxa de sucesso do cache
+            e geram retrabalho.
+          </li>
+          <li>
+            <strong>Consolidar um “cadastro tributário padrão”.</strong>
+            Após validação, transformar o resultado em padrão operacional para compras, precificação, faturamento e auditoria.
+          </li>
+        </ol>
+      </div>
+
+      <div class="mb-2">
+        <div class="sec-title">6. Observações e limitações</div>
+        <p class="p mb-0">
+          Este documento apresenta um diagnóstico gerencial com base nos dados processados no sistema.
+          A aplicação prática depende do contexto operacional, documental e das particularidades do contribuinte.
+          Recomenda-se validação final pelo responsável fiscal antes de operacionalizar regras em larga escala.
+        </p>
+      </div>
+
+    </div>
+
+    <div class="p-4 footer">
+      <div>Documento gerado pelo sistema Morpho • Análise Tributária</div>
+    </div>
+  </div>
+</div>
+{% endblock %}

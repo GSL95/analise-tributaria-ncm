@@ -1,0 +1,251 @@
+{% extends 'base.html' %}
+{% load form_extras %}
+
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="card sombra_cards">
+    <div class="card-body">
+      <h2 class="mb-4">{{ titulo }}</h2>
+
+      
+
+      <form method="post" id="form-empresa">
+
+        {% if form.non_field_errors %}
+          <div class="alert alert-danger">
+            {{ form.non_field_errors }}
+          </div>
+        {% endif %}
+
+        {% if form.errors %}
+          <div class="alert alert-danger">
+            Corrija os campos destacados abaixo.
+          </div>
+        {% endif %}
+        {% csrf_token %}
+
+        <div class="row g-3 align-items-end">
+          <div class="col-md-9">
+            <label for="id_cnpj" class="form-label">CNPJ</label>
+            {{ form.cnpj|add_class:"form-control custom-input" }}
+          </div>
+          <div class="col-md-3 text-end">
+            <label class="form-label d-block invisible">Botão</label>
+            <button id="btn-consultar" type="button" class="btn btn-outline-primary w-100" onclick="consultarCNPJ()">
+              Preencher Automático
+            </button>
+          </div>
+        </div>
+
+        <div class="row mt-3">
+          <div class="col-md-6">
+            <label class="form-label">Razão Social</label>
+            {{ form.razao_social|add_class:"form-control custom-input" }}
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Nome Fantasia</label>
+            {{ form.nome_fantasia|add_class:"form-control custom-input" }}
+          </div>
+        </div>
+
+        <div class="row mt-3">
+          <div class="col-md-6">
+            <label class="form-label">Inscrição Estadual</label>
+            {{ form.inscricao_estadual|add_class:"form-control custom-input" }}
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">
+              Regime Tributário <span class="text-danger">*</span>
+            </label>
+            {{ form.regime_tributario|add_class:"form-control custom-input" }}
+            {% if form.regime_tributario.errors %}
+              <div class="text-danger small mt-1">
+                {{ form.regime_tributario.errors|striptags }}
+              </div>
+            {% endif %}
+          </div>
+        </div>
+
+        {# ✅ NOVO BLOCO: ATIVIDADE ORIGEM / DESTINO #}
+        <div class="row mt-3">
+          <div class="col-md-6">
+            <label class="form-label">
+              Atividade (Origem) <span class="text-danger">*</span>
+            </label>
+            {{ form.atividade_origem|add_class:"form-control custom-input" }}
+            {% if form.atividade_origem.errors %}
+              <div class="text-danger small mt-1">
+                {{ form.atividade_origem.errors|striptags }}
+              </div>
+            {% endif %}
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">
+              Atividade (Destino) <span class="text-danger">*</span>
+            </label>
+            {{ form.atividade_destino|add_class:"form-control custom-input" }}
+            {% if form.atividade_destino.errors %}
+              <div class="text-danger small mt-1">
+                {{ form.atividade_destino.errors|striptags }}
+              </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="row mt-3">
+          <div class="col-md-3">
+            <label class="form-label">CEP</label>
+            {{ form.cep|add_class:"form-control custom-input" }}
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Endereço</label>
+            {{ form.endereco|add_class:"form-control custom-input" }}
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Número</label>
+            {{ form.numero|add_class:"form-control custom-input" }}
+          </div>
+        </div>
+
+        <div class="row mt-3">
+          <div class="col-md-4">
+            <label class="form-label">Bairro</label>
+            {{ form.bairro|add_class:"form-control custom-input" }}
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Município</label>
+            {{ form.municipio|add_class:"form-control custom-input" }}
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">UF</label>
+            {{ form.uf|add_class:"form-control custom-input" }}
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Início das Atividades</label>
+            {{ form.data_abertura|add_class:"form-control custom-input" }}
+          </div>
+        </div>
+
+        <div class="row mt-3">
+          <div class="col-md-12">
+            <label class="form-label">CNAE Principal</label>
+            {{ form.cnae_principal|add_class:"form-control custom-input" }}
+          </div>
+        </div>
+
+        <div class="row mt-3">
+          <div class="col-md-12">
+            <label class="form-label">CNAEs Secundários</label>
+            {{ form.cnaes_secundarios|add_class:"form-control custom-input" }}
+          </div>
+        </div>
+
+        <div class="row mt-3">
+          <div class="col-md-12">
+            <label class="form-label">Itens de Substituição Tributária</label>
+            {{ form.itens_substituto_tributario|add_class:"form-control custom-input" }}
+          </div>
+        </div>
+
+        <div class="mt-4 d-flex justify-content-between">
+          <a href="{% url 'empresas' %}" class="btn btn-secondary">Cancelar</a>
+          <button type="submit" class="btn btn-success">Salvar Empresa</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  async function consultarCNPJ() {
+    const cnpj = document.getElementById("id_cnpj").value.replace(/\D/g, '');
+    const btn = document.getElementById("btn-consultar");
+
+    if (cnpj.length !== 14) {
+      alert("CNPJ inválido.");
+      return;
+    }
+
+    btn.disabled = true;
+    const textoOriginal = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Consultando...';
+
+    try {
+      const response = await fetch(`/consultar-cnpj/?cnpj=${cnpj}`);
+      const dados = await response.json();
+
+      if (!response.ok || dados.error) {
+        alert(dados.error || "Erro ao consultar o CNPJ.");
+        return;
+      }
+
+      document.getElementById("id_razao_social").value = dados.razao_social || '';
+      document.getElementById("id_nome_fantasia").value = dados.nome_fantasia || '';
+      document.getElementById("id_inscricao_estadual").value = dados.inscricao_estadual || '';
+      document.getElementById("id_cep").value = dados.cep || '';
+      document.getElementById("id_endereco").value = dados.endereco || '';
+      document.getElementById("id_numero").value = dados.numero || '';
+      document.getElementById("id_bairro").value = dados.bairro || '';
+      document.getElementById("id_municipio").value = dados.municipio || '';
+      document.getElementById("id_uf").value = dados.uf || '';
+      document.getElementById("id_data_abertura").value = dados.data_abertura || '';
+      
+
+      document.getElementById("id_cnae_principal").value =
+        (dados.cnae_principal?.codigo || '') + " - " + (dados.cnae_principal?.descricao || '');
+
+      document.getElementById("id_cnaes_secundarios").value =
+        (dados.cnaes_secundarios || [])
+          .map(cnae => `${cnae.codigo} - ${cnae.descricao}`)
+          .join("\n");
+
+      document.getElementById("id_itens_substituto_tributario").value =
+        dados.itens_substituto_tributario || '';
+      
+      
+
+      // Obs.: atividade_origem/atividade_destino não vêm do endpoint de CNPJ.
+      // Você pode definir defaults no backend ou deixar o usuário selecionar.
+
+    } catch (error) {
+      alert("Erro ao consultar o CNPJ.");
+      console.error(error);
+    } finally {
+      btn.innerHTML = textoOriginal;
+      btn.disabled = false;
+    }
+  }
+</script>
+
+<script>
+  document.getElementById("form-empresa").addEventListener("submit", function (e) {
+    const regime = document.getElementById("id_regime_tributario").value;
+    const origem = document.getElementById("id_atividade_origem").value;
+    const destino = document.getElementById("id_atividade_destino").value;
+
+    if (!regime || !origem || !destino) {
+      e.preventDefault();
+      alert("Preencha Regime Tributário, Atividade de Origem e Destino.");
+    }
+  });
+</script>
+
+<script>
+  const campoCnpj = document.getElementById("id_cnpj");
+
+  campoCnpj.addEventListener("input", function () {
+    this.value = this.value.replace(/\D/g, "");
+  });
+
+  campoCnpj.addEventListener("paste", function () {
+    setTimeout(() => {
+      this.value = this.value.replace(/\D/g, "");
+    }, 0);
+  });
+</script>
+{% endblock %}

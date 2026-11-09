@@ -1,0 +1,304 @@
+{# templates/core/analise_tributaria/detail.html #}
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+
+  <div class="d-flex justify-content-between align-items-start mb-3">
+    <div>
+      <h3 class="mb-1">Detalhe da Análise</h3>
+      <div class="text-muted small">
+        {{ empresa.razao_social }} — Lote {% if item.upload_lote_id %}#{{ item.upload_lote_id }}{% else %}-{% endif %}
+      </div>
+    </div>
+
+    <div class="d-flex gap-2">
+      <a class="btn btn-outline-secondary" href="{% url 'analise_tributaria_list' empresa.id %}">Voltar</a>
+
+      <form method="post" action="{% url 'analise_tributaria_reprocessar' empresa.id item.id %}">
+        {% csrf_token %}
+        <button class="btn btn-primary" type="submit">Reprocessar</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <div class="text-muted small">Produto</div>
+          <div class="fw-semibold">{{ item.produto }}</div>
+        </div>
+        <div class="col-md-2">
+          <div class="text-muted small">NCM</div>
+          <div class="fw-semibold">{{ item.ncm|default:"-" }}</div>
+        </div>
+        <div class="col-md-4">
+          <div class="text-muted small">TIPI</div>
+          <div class="fw-semibold">{{ resultado.desc_tipi|default:"-" }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3">
+
+    <div class="col-lg-6">
+      <div class="card h-100">
+        <div class="card-header fw-semibold">ICMS</div>
+        <div class="card-body">
+          <div><b>Alíquota:</b> {{ resultado.aliquota_icms_retornado|default:"-" }}</div>
+          <div><b>CST:</b> {{ resultado.cst_icms|default:"-" }}</div>
+          <div class="mt-2"><b>Descrição:</b><br>{{ resultado.descricao_icms_retornado|default:"-" }}</div>
+          <div class="mt-2"><b>Base legal:</b><br>{{ resultado.base_legal_icms_retornado|default:"-" }}</div>
+          <div class="mt-2"><b>Vigência:</b> {{ resultado.vigencia_inicial_icms|default:"-" }}</div>
+          <div class="mt-2"><b>Observação:</b><br>{{ resultado.observacao_icms|default:"-" }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-6">
+      <div class="card h-100">
+        <div class="card-header fw-semibold">ST Interna</div>
+        <div class="card-body">
+          <div><b>CEST:</b> {{ resultado.cest|default:"-" }}</div>
+          <div><b>MVA:</b> {{ resultado.mva|default:"-" }}</div>
+          <div><b>MVA ajustada 4%:</b> {{ resultado.mva_ajustada_4|default:"-" }}</div>
+          <div><b>MVA ajustada 7%:</b> {{ resultado.mva_ajustada_7|default:"-" }}</div>
+          <div><b>MVA ajustada 12%:</b> {{ resultado.mva_ajustada_12|default:"-" }}</div>
+          <div class="mt-2"><b>Segmento:</b> {{ resultado.segmentos_st|default:"-" }}</div>
+          <div class="mt-2"><b>Base legal:</b><br>{{ resultado.base_legal_st|default:"-" }}</div>
+          <div class="mt-2"><b>Vigência:</b> {{ resultado.vigencia_inicial_st|default:"-" }}</div>
+          <div class="mt-2"><b>Observação:</b><br>{{ resultado.observacao_st|default:"-" }}</div>
+        </div>
+      </div>
+    </div>
+
+    {# CARD: REDUÇÃO DE BASE (somente quando existir no retorno — lucro real) #}
+    {% if resultado.descricao_reducao or resultado.base_legal_reducao_interna or resultado.base_legal_reducao_externa %}
+    <div class="col-lg-6">
+      <div class="card h-100">
+        <div class="card-header fw-semibold">Redução de Base (ICMS)</div>
+        <div class="card-body">
+
+          <div class="mb-2">
+            <div class="text-muted small">Descrição</div>
+            <div>{{ resultado.descricao_reducao|default:"-" }}</div>
+          </div>
+
+          <hr class="my-2">
+
+          <div class="fw-semibold mb-2">Operação interna</div>
+          <div><b>CBENEF:</b> {{ resultado.cbenef|default:"-" }}</div>
+          <div><b>Operação:</b> {{ resultado.operacao_interna|default:"-" }}</div>
+          <div class="mt-2"><b>Descrição:</b><br>{{ resultado.descricao_interna|default:"-" }}</div>
+          <div class="mt-2"><b>Alíquota reduzida:</b> {{ resultado.aliquota_reducao_interna|default:"-" }}</div>
+          <div class="mt-2"><b>Base legal:</b><br>{{ resultado.base_legal_reducao_interna|default:"-" }}</div>
+
+          <hr class="my-3">
+
+          <div class="fw-semibold mb-2">Operação interestadual</div>
+          <div><b>Operação:</b> {{ resultado.operacao_externa|default:"-" }}</div>
+          <div class="mt-2"><b>Descrição:</b><br>{{ resultado.descricao_externa|default:"-" }}</div>
+          <div class="mt-2"><b>Alíquota reduzida:</b> {{ resultado.aliquota_reducao_externa|default:"-" }}</div>
+          <div class="mt-2"><b>Base legal:</b><br>{{ resultado.base_legal_reducao_externa|default:"-" }}</div>
+
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="col-lg-6">
+      <div class="card h-100">
+        <div class="card-header fw-semibold">ST Interestadual</div>
+        <div class="card-body">
+          <div><b>CEST:</b> {{ resultado.cest_st_interestadual|default:"-" }}</div>
+          <div><b>Descrição:</b><br>{{ resultado.descricao_st_interestadual|default:"-" }}</div>
+          <div class="mt-2"><b>Segmento:</b> {{ resultado.segmento_st_interestadual|default:"-" }}</div>
+          <div class="mt-2"><b>MVA original:</b> {{ resultado.mva_original_st_interestadual|default:"-" }}</div>
+          <div><b>MVA ajustada 4%:</b> {{ resultado.mva_ajustada_4_st_interestadual|default:"-" }}</div>
+          <div><b>MVA ajustada 12%:</b> {{ resultado.mva_ajustada_12_st_interestadual|default:"-" }}</div>
+          <div class="mt-2"><b>Base legal:</b><br>{{ resultado.base_legal_st_interestadual|default:"-" }}</div>
+          <div class="mt-2"><b>Aplicabilidade:</b><br>{{ resultado.aplicabilidade_st_interestadual|default:"-" }}</div>
+          <div class="mt-2"><b>Não aplicabilidade:</b><br>{{ resultado.nao_aplicabilidade_st_interestadual|default:"-" }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-6">
+      <div class="card h-100">
+        <div class="card-header fw-semibold">PIS/COFINS</div>
+        <div class="card-body">
+          <div><b>CST PIS:</b> {{ resultado.cst_pis|default:"-" }}</div>
+          <div><b>Alíquota PIS:</b> {{ resultado.aliquota_pis|default:"-" }}</div>
+          <br>
+          <div><b>CST COFINS:</b> {{ resultado.cst_cofins|default:"-" }}</div>
+          <div><b>Alíquota COFINS:</b> {{ resultado.aliquota_cofins|default:"-" }}</div>
+          <br>
+          <div class="mt-2"><b>Base legal:</b><br>{{ resultado.base_legal_pis_cofins|default:"-" }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 mt-3">
+      <div class="d-flex align-items-center gap-2">
+        <span class="fw-bold text-primary fs-6">Reforma Tributária</span>
+        <span class="badge bg-primary">LC 214/2025</span>
+        <div class="flex-grow-1 border-top border-primary opacity-25 ms-1"></div>
+      </div>
+      <div class="text-muted small mt-1">
+        Dados válidos a partir de 2026 conforme cronograma da Emenda Constitucional 132/2023.
+      </div>
+    </div>
+
+    {# CBS — Contribuição sobre Bens e Serviços #}
+    <div class="col-lg-6">
+      <div class="card h-100">
+        <div class="card-header fw-semibold d-flex align-items-center gap-2">
+          CBS
+          <span class="text-muted fw-normal small">Contribuição sobre Bens e Serviços</span>
+        </div>
+        <div class="card-body">
+          {% if resultado.cst_cbs or resultado.aliquota_cbs %}
+            <div><b>CST:</b> <span class="badge bg-secondary">{{ resultado.cst_cbs|default:"-" }}</span></div>
+            <div class="mt-2"><b>Alíquota:</b>
+              <span class="fw-semibold">
+                {{ resultado.aliquota_cbs|default:"-" }}{% if resultado.aliquota_cbs %}%{% endif %}
+              </span>
+            </div>
+            <div class="mt-2 text-muted small"><b>Base legal:</b><br>{{ resultado.base_legal_cbs|default:"-" }}</div>
+          {% else %}
+            <div class="text-muted small">Reprocesse o produto para obter os dados CBS.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    {# IBS — Imposto sobre Bens e Serviços (Estadual) #}
+    <div class="col-lg-6">
+      <div class="card h-100">
+        <div class="card-header fw-semibold d-flex align-items-center gap-2">
+          IBS Estadual
+          <span class="text-muted fw-normal small">Imposto sobre Bens e Serviços</span>
+        </div>
+        <div class="card-body">
+          {% if resultado.aliquota_ibs_estadual %}
+            <div><b>Alíquota:</b>
+              <span class="fw-semibold">{{ resultado.aliquota_ibs_estadual }}%</span>
+            </div>
+            {% if resultado.descricao_ibs_estadual %}
+              <div class="mt-2 text-muted small">{{ resultado.descricao_ibs_estadual }}</div>
+            {% endif %}
+            <div class="mt-2 text-muted small"><b>Base legal:</b><br>{{ resultado.base_legal_ibs_estadual|default:"-" }}</div>
+          {% else %}
+            <div class="text-muted small">Alíquota IBS Estadual não encontrada para este estado, ou produto ainda não reprocessado.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    {# Benefícios Fiscais da Reforma — sempre visível, muda o conteúdo #}
+    <div class="col-12">
+      <div class="card {% if resultado.reforma_tipo_beneficio or resultado.reforma_reducoes or resultado.reforma_creditos %}border-warning{% endif %}">
+        <div class="card-header fw-semibold d-flex align-items-center gap-2
+          {% if resultado.reforma_tipo_beneficio or resultado.reforma_reducoes or resultado.reforma_creditos %}bg-warning bg-opacity-25{% endif %}">
+          <i class="bi bi-star{% if resultado.reforma_tipo_beneficio or resultado.reforma_reducoes or resultado.reforma_creditos %}-fill text-warning{% endif %}"></i>
+          Benefício Fiscal da Reforma Tributária
+          {% if resultado.reforma_tipo_beneficio %}
+            <span class="badge bg-warning text-dark ms-1">{{ resultado.reforma_tipo_beneficio }}</span>
+          {% endif %}
+        </div>
+        <div class="card-body">
+
+          {% if resultado.reforma_tipo_beneficio or resultado.reforma_reducoes or resultado.reforma_creditos %}
+
+            {% if resultado.reforma_aplicabilidade %}
+              <div class="mb-3">
+                <div class="text-muted small fw-semibold mb-1">APLICABILIDADE</div>
+                <div>{{ resultado.reforma_aplicabilidade }}</div>
+              </div>
+            {% endif %}
+
+            <div class="row g-3">
+
+              {% if resultado.reforma_reducoes %}
+              <div class="col-md-6">
+                <div class="text-muted small fw-semibold mb-2">REDUÇÕES</div>
+                <table class="table table-sm table-bordered mb-0">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Tipo</th>
+                      <th class="text-center">Percentual</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for red in resultado.reforma_reducoes %}
+                    <tr>
+                      <td>
+                        {{ red.tipo_reducao|default:"-" }}
+                        {% if red.descricao %}<br><span class="text-muted small">{{ red.descricao }}</span>{% endif %}
+                      </td>
+                      <td class="text-center fw-semibold">{{ red.percentual|default:red.valor|default:"-" }}</td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+              {% endif %}
+
+              {% if resultado.reforma_creditos %}
+              <div class="col-md-6">
+                <div class="text-muted small fw-semibold mb-2">CRÉDITOS PRESUMIDOS</div>
+                <ul class="list-group list-group-flush">
+                  {% for cred in resultado.reforma_creditos %}
+                  <li class="list-group-item px-0">
+                    <span class="badge bg-success me-1">{{ cred.valor|default:"-" }}</span>
+                    {{ cred.descricao|default:"" }}
+                  </li>
+                  {% endfor %}
+                </ul>
+              </div>
+              {% endif %}
+
+            </div>
+
+            {% if resultado.reforma_base_legal %}
+              <div class="mt-3 text-muted small"><b>Base legal:</b> {{ resultado.reforma_base_legal }}</div>
+            {% endif %}
+
+          {% else %}
+            <div class="text-muted small">
+              Nenhum benefício fiscal da Reforma Tributária encontrado para este NCM
+              {% if not resultado.cst_cbs %}— reprocesse o produto para consultar a API.{% else %}.{% endif %}
+            </div>
+          {% endif %}
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="accordion mt-3" id="accRaw">
+    <div class="accordion-item">
+      <h2 class="accordion-header" id="headingRaw">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseRaw">
+          JSON bruto (debug)
+        </button>
+      </h2>
+      <div id="collapseRaw" class="accordion-collapse collapse" data-bs-parent="#accRaw">
+        <div class="accordion-body">
+          <pre class="mb-0">{{ resultado|safe }}</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% if cache_status == "ERRO" %}
+  <div class="alert alert-danger">
+    <div class="fw-semibold mb-1">Erro na análise</div>
+    <div style="white-space:pre-wrap;">{{ cache_erro|default:"Sem detalhes do erro." }}</div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

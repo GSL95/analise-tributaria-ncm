@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+{% block title %}Notas - Análise Tributária{% endblock %}
+{% block content %}
+
+<h3 class="mb-3 text-center">Notas / Itens</h3>
+
+<div class="card sombra_cards mb-3 text-center">
+  <div class="card-body">
+    <form class="row g-2 align-items-end justify-content-center" method="get">
+      <div class="col-12 col-md-5">
+        <label class="form-label">Buscar</label>
+        <input name="q" value="{{ q }}" class="form-control text-center"
+               placeholder="Chave, número, CNPJ emitente/destinatário">
+      </div>
+      <div class="col-6 col-md-2">
+        <label class="form-label">Início</label>
+        <input type="date" name="ini" value="{{ ini }}" class="form-control text-center">
+      </div>
+      <div class="col-6 col-md-2">
+        <label class="form-label">Fim</label>
+        <input type="date" name="fim" value="{{ fim }}" class="form-control text-center">
+      </div>
+      <div class="col-12 col-md-3 d-flex gap-2">
+        <button class="btn btn-primary w-100" type="submit">Filtrar</button>
+        <a class="btn btn-outline-secondary w-100" href="?">Limpar</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card sombra_cards text-center">
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-sm align-middle text-center">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Emissão</th>
+            <th>Número</th>
+            <th>Emitente</th>
+            <th>Destinatário</th>
+            <th>Total</th>
+            <th>Chave</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for n in page.object_list %}
+          <tr>
+            <td>{{ n.id }}</td>
+            <td>{% if n.emissao_em %}{{ n.emissao_em|date:"d/m/Y H:i" }}{% else %}-{% endif %}</td>
+            <td>{{ n.numero|default:"-" }}</td>
+            <td><code>{{ n.cnpj_emitente|default:"-" }}</code></td>
+            <td><code>{{ n.cnpj_destinatario|default:"-" }}</code></td>
+            <td>R$ {{ n.valor_total }}</td>
+            <td style="max-width: 260px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+              <code title="{{ n.chave }}">{{ n.chave }}</code>
+            </td>
+            <td>
+              <a class="btn btn-sm btn-outline-primary"
+                 href="?page={{ page.number }}&q={{ q|urlencode }}&ini={{ ini }}&fim={{ fim }}&nota={{ n.id }}">
+                Ver itens
+              </a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="8" class="text-muted text-center">Nenhuma nota encontrada.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Paginação -->
+    <nav class="mt-2">
+      <ul class="pagination pagination-sm justify-content-center mb-0">
+        {% if page.has_previous %}
+          <li class="page-item">
+            <a class="page-link"
+               href="?page={{ page.previous_page_number }}&q={{ q|urlencode }}&ini={{ ini }}&fim={{ fim }}">
+               Anterior
+            </a>
+          </li>
+        {% else %}
+          <li class="page-item disabled"><span class="page-link">Anterior</span></li>
+        {% endif %}
+
+        <li class="page-item disabled">
+          <span class="page-link">Página {{ page.number }} de {{ page.paginator.num_pages }}</span>
+        </li>
+
+        {% if page.has_next %}
+          <li class="page-item">
+            <a class="page-link"
+               href="?page={{ page.next_page_number }}&q={{ q|urlencode }}&ini={{ ini }}&fim={{ fim }}">
+               Próxima
+            </a>
+          </li>
+        {% else %}
+          <li class="page-item disabled"><span class="page-link">Próxima</span></li>
+        {% endif %}
+      </ul>
+    </nav>
+  </div>
+</div>
+
+<!-- Modal Itens -->
+<div class="modal fade" id="itensModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content text-center">
+      <div class="modal-header justify-content-center">
+        <div>
+          <h5 class="modal-title">Itens da Nota</h5>
+          {% if nota_selecionada %}
+            <div class="text-muted small">
+              Nota ID {{ nota_selecionada.id }} |
+              Nº {{ nota_selecionada.numero|default:"-" }} |
+              Chave: <code>{{ nota_selecionada.chave }}</code>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="modal-body">
+        {% if nota_selecionada %}
+          <div class="table-responsive">
+            <table class="table table-sm align-middle text-center">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Produto</th>
+                  <th>NCM</th>
+                  <th>CFOP</th>
+                  <th>V. Prod</th>
+                  <th>ICMS CST</th>
+                  <th>ICMS</th>
+                  <th>PIS CST</th>
+                  <th>PIS</th>
+                  <th>COFINS CST</th>
+                  <th>COFINS</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for it in itens %}
+                <tr>
+                  <td>{{ it.n_item }}</td>
+                  <td style="max-width: 420px;">{{ it.produto }}</td>
+                  <td><code>{{ it.ncm }}</code></td>
+                  <td><code>{{ it.cfop }}</code></td>
+                  <td>R$ {{ it.v_prod }}</td>
+                  <td><code>{{ it.icms_cst|default:"" }}{{ it.icms_csosn|default:"" }}</code></td>
+                  <td>R$ {{ it.icms_valor }}</td>
+                  <td><code>{{ it.pis_cst }}</code></td>
+                  <td>R$ {{ it.pis_valor }}</td>
+                  <td><code>{{ it.cofins_cst }}</code></td>
+                  <td>R$ {{ it.cofins_valor }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="text-muted">Nenhuma nota selecionada.</div>
+        {% endif %}
+      </div>
+
+      <div class="modal-footer justify-content-center">
+        <a class="btn btn-outline-secondary"
+           href="?page={{ page.number }}&q={{ q|urlencode }}&ini={{ ini }}&fim={{ fim }}">
+          Fechar
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if abrir_modal %}
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const modalEl = document.getElementById("itensModal");
+    const modal = new bootstrap.Modal(modalEl);
+    modal.show();
+  });
+</script>
+{% endif %}
+
+{% endblock %}
